@@ -1,35 +1,33 @@
 class DataLoader
   class << self
-
-    def from_ini(model)
-      fixtures = IniFile.load("./fixtures/#{model.name.downcase}.ini")
-      return unless fixtures
-      fixtures.each_section do |section|
-        load_fixture(fixtures[section], model)
+    def execute
+      Dir.glob("fixtures/*.{json,ini}").each do |file|
+        if model = model_exist?(file)
+          loader = File.extname(file) == '.json' ? JsonLoader.new(file) : IniLoader.new(file)
+          loader.parse do |data|
+            load_fixture(data, model)
+          end
+        end
       end
     end
 
-    def from_json(model)
-      file_path = "./fixtures/#{model.name.downcase}.json"
-      return unless File.exists?(file_path)
-      data = File.open(file_path).read
-      fixtures = JSON.parse(data)
-      fixtures.each do |fixture|
-        load_fixture(fixture, model)
-      end     
+    def model_exist?(file_name)
+      model = File.basename(file_name, ".*").capitalize.constantize
+      rescue NameError
+      model && model.superclass == DataManage
     end
 
-    def load_fixture(fixture, model)
-      id = model.find(fixture["id"]).id if model.find(fixture["id"])
+    def load_fixture(data, model)
+      id = model.find(data["id"]).id if model.find(data["id"])
       if id.nil?
-        keys = fixture.keys.join(', ')        
-        values = fixture.values.map { |el| "'#{el}'" }.join(', ')
+        keys = data.keys.join(', ')        
+        values = data.values.map { |el| "'#{el}'" }.join(', ')
         Database.connect.query("INSERT INTO #{model.table_name}(#{keys}) VALUES(#{values})")
       else
-        fields = fixture.keys.map { |key| "#{key} = ?" }.join(', ')
+        fields = data.keys.map { |key| "#{key} = ?" }.join(', ')
         sql = "UPDATE #{model.table_name} SET #{fields} WHERE id = ?"
         request = Database.connect.prepare(sql)
-        values = fixture.values
+        values = data.values
         request.execute(*values, id)
       end
     end 

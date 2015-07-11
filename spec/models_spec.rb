@@ -1,7 +1,6 @@
 describe DataManage do
   before :each do
-    DataLoader.from_ini User
-    DataLoader.from_json User
+    DataLoader.execute
   end
 
   it 'finds record by id' do

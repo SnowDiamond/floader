@@ -1,6 +1,16 @@
 class DataManage
   class << self
-    def find(id);
+    
+    def create(options={})
+      keys = options.keys.join(', ')        
+      values = options.values.map { |value| "'#{value}'" }.join(', ')
+      sql = "INSERT INTO #{table_name} (#{keys}) VALUES (#{values})"
+      request = Database.connect.prepare(sql)
+      request.execute
+      self.find(request.insert_id)
+    end
+
+    def find(id)
       sql = "SELECT #{attributes.join(', ')} FROM #{table_name} WHERE id = ?"
       request = Database.connect.prepare(sql)
       request.execute(id)
@@ -36,12 +46,18 @@ class DataManage
   end
  
   def save
-    attributes = self.class.attributes.map { |attribute| "#{attribute} = ?" }.join(', ')
+    options = {}
+    self.class.attributes.each { |attribute| options[attribute] = send(attribute) }
+    update(options)
+    return self
+  end
+
+  def update(options={})
+    attributes = options.keys.map { |key| "#{key} = ?" }.join(', ')    
+    values = options.values       
     sql = "UPDATE #{self.class.table_name} SET #{attributes} WHERE id = ?"
     request = Database.connect.prepare(sql)
-    values = self.class.attributes.map { |attribute| send(attribute) }
     request.execute(*values, id)
     request.close
-    return self
   end
 end
